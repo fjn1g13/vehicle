@@ -51,6 +51,7 @@ instance HasName DifferentiableLogicID Name where
 data InteractiveTheoremProverID
   = Agda
   | Rocq
+  | Lean
   deriving (Eq, Show, Read, Bounded, Enum)
 
 instance Pretty InteractiveTheoremProverID where

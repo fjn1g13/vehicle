@@ -13,6 +13,7 @@ import Vehicle.Backend.Loss (convertToLossTensors)
 import Vehicle.Backend.Loss.JSON
 import Vehicle.Backend.Prelude
 import Vehicle.Backend.Rocq
+import Vehicle.Backend.Lean
 import Vehicle.Backend.Solver
 import Vehicle.Compile.Error
 import Vehicle.Compile.FunctionaliseResources (functionaliseResources)
@@ -130,6 +131,10 @@ compileToITP ITPOptions {..} typedProg = do
         let rocqOptions = RocqOptions outputFile moduleName
         rocqCode <- compileProgToRocq decProg rocqOptions
         writeRocqFile outputFile rocqCode
+      Lean -> do
+        let leanOptions = LeanOptions outputFile moduleName
+        leanCode <- compileProgToLean decProg leanOptions
+        writeLeanFile outputFile leanCode
 
 compileToLossFunction ::
   forall m.
