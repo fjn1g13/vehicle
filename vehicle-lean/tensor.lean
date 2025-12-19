@@ -45,6 +45,12 @@ def unwrap {d:Nat} {ds:List Nat} (t:Tensor a (d::ds)) (i:Fin d) : Tensor a ds :=
   match t with
   | Tensor.tensor t' => (t' i)
 
+-- TODO: prove properties about this?
+def unwrap_index {d:Nat} {ds:List Nat} (is:Index (d::ds)) : Index ds :=
+  let ⟨is, his⟩ := is
+  match is with
+  | _::is => ⟨is, his.right⟩
+
 def s0 : Tensor Nat [] := Tensor.scalar 1
 def s1 : Tensor Nat [2] := Tensor.tensor (fun x => Tensor.scalar x.val)
 def s2 : Tensor Nat [5, 10] := Tensor.tensor (fun x => Tensor.tensor (fun y => Tensor.scalar (x.val * y.val)))
@@ -63,20 +69,95 @@ def s22 := pointwise (. + .) s2 s2
 
 #eval extract (unwrap (unwrap s22 3) 7)
 
--- TODO: make a MathLib project; for now, def props manually
-def Symmetric (f:a -> a -> b) := ∀a b, f a b = f b a
 
--- TODO: this should take a reflexive relation
-def pointwise_symm : Symmetric (a := Tensor a ds) (pointwise (f := fun x y => x = y)) :=
+def project (f:a -> b) (t:Tensor a ds) : Tensor b ds :=
+  match ds, t with
+  | [], Tensor.scalar v => Tensor.scalar (f v)
+  | _::_, Tensor.tensor fa => Tensor.tensor (fun i => project f (fa i))
+
+
+-- TODO: make a MathLib project; for now, def props manually
+def Commutative (f:a -> a -> b) := ∀a b, f a b = f b a
+
+theorem pointwise_comm {f:a -> a -> b} (f_comm:Commutative f) : Commutative (a := Tensor a ds) (pointwise f) :=
   fun ta tb =>
     match ds, ta, tb with
     | [], Tensor.scalar va, Tensor.scalar vb => by
       repeat rw [pointwise]
-      conv =>
-        lhs
-        rw [Eq.comm]
+      rw [f_comm]
     | _::_, Tensor.tensor fa, Tensor.tensor fb => by
       repeat rw [pointwise]
       rw [Tensor.tensor.injEq]
       funext i
-      apply pointwise_symm
+      apply pointwise_comm f_comm
+
+-- distributivity of indexing over pointwise: probably more useful proving random properties over pointwise
+theorem index_pointwise (f:a -> b -> c) (ta:Tensor a ds) (tb:Tensor b ds) (is:Index ds)
+  : index' (pointwise f ta tb) is = f (index' ta is) (index' tb is) :=
+  have ⟨is, his⟩ := is
+  match ds, ta, tb, is with
+  | [], Tensor.scalar va, Tensor.scalar vb, [] => rfl
+  | _::_, Tensor.tensor fa, Tensor.tensor fb, i::is => by
+    rw [pointwise]
+    repeat rw [index', index]
+    exact index_pointwise _ _ _ ⟨is, his.right⟩
+
+def Transitive (R:a -> a -> Prop) := ∀{a b c}, R a b -> R b c -> R a c
+
+-- index of pointwise is transitive (pointwise is transitive )
+theorem index_pointwise_transitive {R:a -> a -> Prop} (R_trans:Transitive R) (is:Index ds)
+  : Transitive (fun ta tb => index' (pointwise R ta tb) is) := by
+  intro a b c hab hbc
+  rw [index_pointwise] at *
+  exact R_trans hab hbc
+
+
+-- distributivity of indexing into projection
+theorem index_project (f:a -> b) (t:Tensor a ds) (is:Index ds)
+  : index' (project f t) is = f (index' t is) :=
+  have ⟨is, his⟩ := is
+  match ds, t, is with
+  | [], Tensor.scalar v, [] => rfl
+  | _::_, Tensor.tensor fa, i::is => by
+    rw [project]
+    repeat rw [index', index]
+    exact index_project f _ ⟨is, his.right⟩
+
+-- tensor builders
+def const_tensor (ds:List Nat) (v:a) : Tensor a ds :=
+  match ds with
+  | [] => Tensor.scalar v
+  | _::ds =>
+    Tensor.tensor (fun _ => const_tensor ds v)
+
+theorem index_const_tensor {ds:List Nat} (v:a) (is:Index ds) : index' (const_tensor ds v) is = v :=
+  let ⟨is, his⟩ := is
+  match ds, is with
+  | [], [] => rfl
+  | _::ds, _::is => by
+    rw [const_tensor]
+    rw [index', index]
+    have hi := index_const_tensor v ⟨is, his.right⟩
+    rw [index'] at hi
+    rw [hi]
+
+def unwrap_f_index {d:Nat} {ds:List Nat} (f:Index (d::ds) -> a) (i:Fin d) (is:Index ds) : a :=
+  f ⟨i.val::is.val, ⟨i.isLt, is.property⟩⟩
+
+def init_tensor {ds:List Nat} (f:Index ds -> a) : Tensor a ds :=
+  match ds with
+  | [] => Tensor.scalar (f ⟨[], True.intro⟩)
+  | _::_ =>
+    Tensor.tensor (fun i => init_tensor (unwrap_f_index f i))
+
+theorem index_init_tensor {ds:List Nat} (f:Index ds -> a) (is:Index ds) : index' (init_tensor f) is = f is :=
+  let ⟨is, his⟩ := is
+  match ds, is with
+  | [], [] => by rfl
+  | d::ds, i::is => by
+    rw [init_tensor]
+    rw [index', index]
+    have hi := index_init_tensor (unwrap_f_index f ⟨i, his.left⟩) ⟨is, his.right⟩
+    rw [index'] at hi
+    rw [hi]
+    rfl
