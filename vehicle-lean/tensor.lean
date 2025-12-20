@@ -52,7 +52,7 @@ def unwrap_index {d:Nat} {ds:List Nat} (is:Index (d::ds)) : Index ds :=
   | _::is => ⟨is, his.right⟩
 
 def s0 : Tensor Nat [] := Tensor.scalar 1
-def s1 : Tensor Nat [2] := Tensor.tensor (fun x => Tensor.scalar x.val)
+def s1 : Tensor Nat [20] := Tensor.tensor (fun x => Tensor.scalar x.val)
 def s2 : Tensor Nat [5, 10] := Tensor.tensor (fun x => Tensor.tensor (fun y => Tensor.scalar (x.val * y.val)))
 
 #eval extract (unwrap (unwrap s2 3) 7)
@@ -161,3 +161,22 @@ theorem index_init_tensor {ds:List Nat} (f:Index ds -> a) (is:Index ds) : index'
     rw [index'] at hi
     rw [hi]
     rfl
+
+
+-- aggregators
+def foldl (f:b -> a -> b) (t:Tensor a ds) (s:b) : b :=
+  match ds, t with
+  | [], Tensor.scalar v => f s v
+  | d::_, Tensor.tensor fa =>
+    Fin.foldl d (fun s i => foldl f (fa i) s) s
+
+def foldr (f:b -> a -> b) (t:Tensor a ds) (s:b) : b :=
+  match ds, t with
+  | [], Tensor.scalar v => f s v
+  | d::_, Tensor.tensor fa =>
+    Fin.foldr d (fun i s => foldr f (fa i) s) s
+
+#eval foldr (. + .) s1 0
+
+
+-- the real question is, if I'm going with Index for everything, why am I defining Tensor as anytihng other than  Index -> a ??
