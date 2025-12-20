@@ -179,4 +179,6 @@ def foldr (f:b -> a -> b) (t:Tensor a ds) (s:b) : b :=
 #eval foldr (. + .) s1 0
 
 
--- the real question is, if I'm going with Index for everything, why am I defining Tensor as anytihng other than  Index -> a ??
+-- the real question is, if I'm going with Index for everything, why am I defining Tensor as anything other than  Index -> a ??
+-- that was the original plan, but I got scared by the Agda and dropped it: I should probably just go back to it...
+-- ... and having just tried it, I don't like it, because then the Tensor function is defined for a space that does not
