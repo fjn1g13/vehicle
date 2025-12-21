@@ -70,17 +70,75 @@ theorem transitive_pointwiseT {R:a -> a -> Prop} (trans_R:Transitive R) (is:Inde
 
 
 -- checks that every dimension is the same except for dimension k
--- def align_along (k:Nat) (ds1:List Nat) (ds2:List Nat) :=
---   match ds1, ds2, k with
---   | _::ds1, _::ds2, 0 => ds1 = ds2
---   | d1::ds1, d2::ds2, Nat.succ k => d1 = d2 ∧ align_along k ds1 ds2
---   | _, _, _ => False
-
+-- this def is proving (heh) very hard to work with: tempted to define it as  ∀i, i ≠ k -> ds1[i]? = ds2[i]?
 def align_along (k:Nat) (ds1:List Nat) (ds2:List Nat) :=
   match ds1, ds2, k with
   | _::ds1, _::ds2, 0 => ds1 = ds2
   | d1::ds1, d2::ds2, Nat.succ k => d1 = d2 ∧ align_along k ds1 ds2
   | _, _, _ => False
+
+def align_along' (k:Nat) (ds1:List Nat) (ds2:List Nat) :=
+  k < ds1.length ∧ ∀i, i ≠ k -> ds1[i]? = ds2[i]?
+
+-- turns out this is List.ext_getElem?_iff (probably should have tried exact? from the start)
+theorem getElem?_eq (l1 l2:List a) : l1 = l2 <-> ∀(i:Nat), l1[i]? = l2[i]? :=
+  match l1, l2 with
+  | [], [] => by
+    constructor <;> intro lhs
+    . intro i
+      rfl
+    . rfl
+  | h1::l1, [] => by
+    constructor <;> intro lhs
+    . intro i
+      exfalso
+      cases lhs
+    . cases lhs 0
+  | [], h2::l2 => by
+    constructor <;> intro lhs
+    . intro i
+      exfalso
+      cases lhs
+    . cases lhs 0
+  | h1::l1, h2::l2 => by
+    constructor <;> intro lhs
+    . intro i
+      rw [lhs]
+    . rw [List.cons_eq_cons]
+      constructor
+      . apply Option.some_inj.mp
+        exact lhs 0
+      . have hi := getElem?_eq l1 l2
+        apply hi.mpr
+        intro i
+        have lhsi := lhs (i + 1)
+        repeat rw [List.getElem?_cons_succ] at lhsi
+        exact lhsi
+
+theorem align_alongs (k:Nat) (ds1:List Nat) (ds2:List Nat) : align_along k ds1 ds2 = align_along' k ds1 ds2 :=
+  match ds1, ds2, k with
+  | d1::ds1, d2::ds2, 0 => by
+    rw [align_along, align_along']
+    ext
+    constructor
+    . intro lhs
+      rw [lhs]
+      rw [List.length_cons]
+      apply And.intro (Nat.zero_lt_succ ds2.length)
+      intro i ipos
+      repeat rw [List.getElem?_cons]
+      repeat rw [if_neg ipos]
+    . intro ⟨_, lhs⟩
+      apply List.ext_getElem?_iff.mpr
+      intro i
+      have lhsi := lhs (i + 1) (Ne.symm (Nat.zero_ne_add_one i))
+      repeat rw [List.getElem?_cons_succ] at lhsi
+      exact lhsi
+  | d1::ds1, d2::ds2, Nat.succ k => by
+    admit
+  | [], d2::ds2, _ => by admit
+  | d1::ds1, [], _ => by admit
+  | [], [], _ => by admit
 
 theorem align_along_comm (k:Nat) : Commutative (align_along k) :=
   fun {ds1 ds2} =>
